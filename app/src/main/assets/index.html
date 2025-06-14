@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>หารค่าใช้จ่ายร่วมกัน</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
+    td, th { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    .person-checkbox { display: inline-block; width: 90px; }
+  </style>
+</head>
+<body>
+  <h2>เพิ่มรายการรายจ่าย</h2>
+  <label>วันที่: <input type="date" id="date" /></label><br><br>
+  <label>รายละเอียด: <input type="text" id="desc" /></label><br><br>
+  <label>จำนวนเงิน (บาท): <input type="number" id="amount" /></label><br><br>
+  <strong>เลือกผู้ร่วมใช้จ่าย:</strong><br>
+  <div id="people"></div><br>
+  <button onclick="addExpense()">➕ เพิ่มรายการ</button>
+  <hr>
+  <h3>รายการรายจ่าย</h3>
+  <ul id="expenseList"></ul>
+  <button onclick="calculate()">📊 คำนวณยอด</button>
+  <div id="result"></div>
+
+<script>
+
+let expenses = [];
+
+// โหลดข้อมูลเก่า (ถ้ามี)
+if (localStorage.getItem("expenses")) {
+  expenses = JSON.parse(localStorage.getItem("expenses"));
+  updateExpenseList();
+  localStorage.setItem("expenses", JSON.stringify(expenses));
+}
+
+const peopleCount = 20;
+
+// สร้าง checkbox สำหรับคน 1-20
+const peopleDiv = document.getElementById("people");
+for (let i = 1; i <= peopleCount; i++) {
+  peopleDiv.innerHTML += `<label class='person-checkbox'><input type='checkbox' value='${i}'/> คนที่ ${i}</label>`;
+}
+
+function addExpense() {
+  const date = document.getElementById("date").value;
+  const desc = document.getElementById("desc").value;
+  const amount = parseFloat(document.getElementById("amount").value);
+  const checkboxes = document.querySelectorAll("#people input[type=checkbox]:checked");
+  const sharedBy = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+  if (!date || !amount || sharedBy.length === 0) {
+    alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+    return;
+  }
+
+  expenses.push({ date, desc, amount, sharedBy });
+  updateExpenseList();
+  localStorage.setItem("expenses", JSON.stringify(expenses));
+}
+
+function updateExpenseList() {
+  const list = document.getElementById("expenseList");
+  list.innerHTML = "";
+  expenses.forEach((ex, i) => {
+    list.innerHTML += `<li>${ex.date} - ${ex.desc || "ไม่มีรายละเอียด"}: ${ex.amount} บาท (หาร ${ex.sharedBy.length} คน)</li>`;
+  });
+}
+
+function calculate() {
+  const result = {};
+  const monthly = {};
+
+  expenses.forEach(ex => {
+    const perPerson = ex.amount / ex.sharedBy.length;
+    const month = ex.date.slice(0, 7); // yyyy-mm
+
+    ex.sharedBy.forEach(pid => {
+      if (!result[pid]) result[pid] = 0;
+      if (!monthly[month]) monthly[month] = {};
+      if (!monthly[month][pid]) monthly[month][pid] = 0;
+
+      result[pid] += perPerson;
+      monthly[month][pid] += perPerson;
+    });
+  });
+
+  let html = "<h3>📅 สรุปยอดรายเดือน</h3>";
+  for (const month in monthly) {
+    html += `<h4>${month}</h4><table><tr><th>คน</th><th>ยอดที่ต้องจ่าย (บาท)</th></tr>`;
+    for (const pid in monthly[month]) {
+      html += `<tr><td>คนที่ ${pid}</td><td>${monthly[month][pid].toFixed(2)}</td></tr>`;
+    }
+    html += "</table>";
+  }
+
+  html += "<h3>🧮 รวมยอดทั้งหมด</h3><table><tr><th>คน</th><th>ยอดรวม (บาท)</th></tr>";
+  for (const pid in result) {
+    html += `<tr><td>คนที่ ${pid}</td><td>${result[pid].toFixed(2)}</td></tr>`;
+  }
+  html += "</table>";
+  document.getElementById("result").innerHTML = html;
+}
+</script>
+
+<br><button onclick="clearData()">🗑 ล้างข้อมูลทั้งหมด</button>
+<script>
+function clearData() {
+  if (confirm("คุณแน่ใจว่าต้องการล้างข้อมูลทั้งหมด?")) {
+    localStorage.removeItem("expenses");
+    expenses = [];
+    updateExpenseList();
+    document.getElementById("result").innerHTML = "";
+  }
+}
+</script>
+</body>
+
+</html>
